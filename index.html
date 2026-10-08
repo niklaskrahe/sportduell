@@ -82,7 +82,7 @@ header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;
 form{display:grid;gap:12px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .field{display:grid;gap:4px;min-width:0}
-select,input[type=number],input[type=text],input[type=date],input[type=email]{font:inherit;font-size:16px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:9px 10px;width:100%;min-width:0}
+select,input[type=number],input[type=text],input[type=date],input[type=email],input[type=password]{font:inherit;font-size:16px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:9px 10px;width:100%;min-width:0}
 select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--a);outline-offset:1px}
 .me{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:4px;font-weight:600}
 .me.A{background:var(--a-soft);color:var(--a)} .me.B{background:var(--b-soft);color:var(--b)}
@@ -170,17 +170,21 @@ td input[type=number]{width:6.5rem;padding:5px 8px}
 <main class="wrap" id="vLogin" hidden>
   <div class="login">
     <img class="logo" src="icons/icon-192.png" alt="">
-    <div><h1>Sportduell</h1><p class="sub">Melde dich mit deiner E-Mail-Adresse an. Du bekommst einen Code per Mail.</p></div>
-    <form class="panel" id="fEmail">
+    <div><h1>Sportduell</h1><p class="sub" id="lIntro">Melde dich mit deiner E-Mail-Adresse und deinem Passwort an.</p></div>
+    <form class="panel" id="fLogin">
       <div class="field"><span class="label">E-Mail</span><input type="email" id="lEmail" autocomplete="email" required aria-label="E-Mail"></div>
-      <button class="primary" type="submit" id="bSend">Code senden</button>
+      <div class="field"><span class="label" id="lPwLabel">Passwort</span><input type="password" id="lPw" autocomplete="current-password" minlength="8" required aria-labelledby="lPwLabel"></div>
+      <button class="primary" type="submit" id="bLogin">Anmelden</button>
+      <div class="btnrow" style="justify-content:space-between">
+        <button class="link" type="button" id="bMode">Noch kein Konto? Registrieren</button>
+        <button class="link" type="button" id="bForgot">Passwort vergessen</button>
+      </div>
       <p class="toast" id="lToast1" role="status"></p>
     </form>
-    <form class="panel" id="fCode" hidden>
-      <p>Code an <b id="lEmailShown"></b> geschickt. Schau auch im Spam-Ordner nach.</p>
-      <div class="field"><span class="label">Code aus der E-Mail</span><input type="text" id="lCode" inputmode="numeric" autocomplete="one-time-code" maxlength="10" class="code-input" aria-label="Code"></div>
-      <button class="primary" type="submit" id="bVerify">Anmelden</button>
-      <button class="link" type="button" id="bBack">Andere E-Mail-Adresse</button>
+    <form class="panel" id="fNewPw" hidden>
+      <p>Wähle ein neues Passwort.</p>
+      <div class="field"><span class="label" id="lNewPwLabel">Neues Passwort (mind. 8 Zeichen)</span><input type="password" id="lNewPw" autocomplete="new-password" minlength="8" required aria-labelledby="lNewPwLabel"></div>
+      <button class="primary" type="submit" id="bNewPw">Passwort speichern</button>
       <p class="toast" id="lToast2" role="status"></p>
     </form>
   </div>
@@ -385,7 +389,7 @@ td input[type=number]{width:6.5rem;padding:5px 8px}
 <script src="supabase.js"></script>
 <script>
 "use strict";
-const APP_VERSION="1.0";
+const APP_VERSION="1.1";
 const EX=[
  {cat:"Ausdauer"},
  {id:"run",n:"Laufen",u:"1 km",t:"dist",p:10,hm:5},
@@ -451,7 +455,7 @@ function setToast(el,msg,err){el.textContent=msg;el.classList.toggle("err",!!err
 
 // ---------- Supabase ----------
 const C=window.SPORTDUELL_CONFIG||{};
-const sb=window.supabase.createClient(C.url,C.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+const sb=window.supabase.createClient(C.url,C.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"implicit"}});
 let channel=null;
 
 function show(view){for(const v of ["vLogin","vDenied","vApp"])$(v).hidden=v!==view}
@@ -738,23 +742,51 @@ $("bReload").addEventListener("click",()=>location.reload());
 async function logout(){try{await sb.auth.signOut()}catch(_){}LS.set("sd-cache",null);location.reload()}
 $("bLogout").addEventListener("click",logout);$("bDeniedOut").addEventListener("click",logout);
 
-// ---------- Login per Code ----------
-$("fEmail").addEventListener("submit",async ev=>{
-  ev.preventDefault();const email=$("lEmail").value.trim();if(!email)return;
-  $("bSend").disabled=true;
-  const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:true}});
-  $("bSend").disabled=false;
-  if(error){setToast($("lToast1"),/rate|seconds/i.test(error.message)?"Zu viele Versuche. Bitte kurz warten und dann nochmal.":errText(error),true);return}
-  LS.set("sd-email",email);$("lEmailShown").textContent=email;$("fEmail").hidden=true;$("fCode").hidden=false;$("lCode").value="";$("lCode").focus()});
-$("bBack").addEventListener("click",()=>{$("fCode").hidden=true;$("fEmail").hidden=false});
-$("fCode").addEventListener("submit",async ev=>{
-  ev.preventDefault();const token=$("lCode").value.replace(/\D/g,"");const email=LS.get("sd-email","");
-  if(token.length<6){setToast($("lToast2"),"Bitte den Code aus der E-Mail eingeben.",true);return}
-  $("bVerify").disabled=true;
-  const {error}=await sb.auth.verifyOtp({email,token,type:"email"});
-  $("bVerify").disabled=false;
-  if(error){setToast($("lToast2"),/expired|invalid/i.test(error.message)?"Code falsch oder abgelaufen. Fordere einen neuen an.":errText(error),true)}
+// ---------- Login mit Passwort ----------
+const APP_URL=location.origin+location.pathname.replace(/index\.html$/,"");
+let signUpMode=false;
+function setMode(up){signUpMode=up;
+  $("bLogin").textContent=up?"Konto erstellen":"Anmelden";
+  $("bMode").textContent=up?"Schon ein Konto? Anmelden":"Noch kein Konto? Registrieren";
+  $("lPwLabel").textContent=up?"Passwort wählen (mind. 8 Zeichen)":"Passwort";
+  $("lPw").autocomplete=up?"new-password":"current-password";
+  $("lIntro").textContent=up?"Registriere dich einmalig mit der E-Mail-Adresse, die für das Duell freigeschaltet ist.":"Melde dich mit deiner E-Mail-Adresse und deinem Passwort an.";
+  $("bForgot").hidden=up}
+$("bMode").addEventListener("click",()=>setMode(!signUpMode));
+function authMsg(error){const m=error.message||"";
+  if(/invalid login credentials/i.test(m))return"E-Mail oder Passwort falsch. Noch kein Konto? Dann zuerst registrieren.";
+  if(/email not confirmed/i.test(m))return"Bitte zuerst den Bestätigungslink in deiner E-Mail anklicken.";
+  if(/already registered/i.test(m))return"Für diese Adresse gibt es schon ein Konto. Melde dich an.";
+  if(/rate|seconds/i.test(m))return"Zu viele Versuche. Bitte ein paar Minuten warten.";
+  if(/password/i.test(m))return"Das Passwort ist zu kurz oder zu einfach (mind. 8 Zeichen).";
+  return errText(error)}
+$("fLogin").addEventListener("submit",async ev=>{
+  ev.preventDefault();const email=$("lEmail").value.trim(),password=$("lPw").value;if(!email||!password)return;
+  LS.set("sd-email",email);$("bLogin").disabled=true;
+  if(signUpMode){
+    const {data,error}=await sb.auth.signUp({email,password,options:{emailRedirectTo:APP_URL}});
+    $("bLogin").disabled=false;
+    if(error){setToast($("lToast1"),authMsg(error),true);return}
+    if(!data.session){setMode(false);$("lToast1").classList.remove("err");$("lToast1").textContent="Fast geschafft: Klick den Bestätigungslink in der E-Mail (auch im Spam schauen). Danach hier anmelden."}
+  }else{
+    const {error}=await sb.auth.signInWithPassword({email,password});
+    $("bLogin").disabled=false;
+    if(error)setToast($("lToast1"),authMsg(error),true)}
 });
+$("bForgot").addEventListener("click",async()=>{
+  const email=$("lEmail").value.trim();
+  if(!email){setToast($("lToast1"),"Gib zuerst deine E-Mail-Adresse ein.",true);$("lEmail").focus();return}
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:APP_URL});
+  if(error)setToast($("lToast1"),authMsg(error),true);
+  else{$("lToast1").classList.remove("err");$("lToast1").textContent="Link zum Zurücksetzen ist unterwegs. Öffne ihn auf diesem Gerät."}});
+let recovering=false;
+$("fNewPw").addEventListener("submit",async ev=>{
+  ev.preventDefault();$("bNewPw").disabled=true;
+  const {error}=await sb.auth.updateUser({password:$("lNewPw").value});
+  $("bNewPw").disabled=false;
+  if(error){setToast($("lToast2"),authMsg(error),true);return}
+  recovering=false;$("fNewPw").hidden=true;$("fLogin").hidden=false;
+  const {data}=await sb.auth.getSession();lastUser=undefined;onSession(data.session)});
 
 async function onSession(session){
   if(!session){myEmail="";mySlot=null;show("vLogin");const e=LS.get("sd-email","");if(e)$("lEmail").value=e;return}
@@ -764,6 +796,9 @@ async function onSession(session){
   await loadAll();subscribe()}
 let lastUser=undefined;
 sb.auth.onAuthStateChange((ev,session)=>{
+  if(ev==="PASSWORD_RECOVERY"){recovering=true;show("vLogin");$("fLogin").hidden=true;$("fNewPw").hidden=false;$("lIntro").textContent="Passwort zurücksetzen";return}
+  if(recovering)return;
+  if(location.hash.includes("access_token"))history.replaceState(null,"",location.pathname);
   const uid=session?session.user.id:null;
   if(uid===lastUser)return;lastUser=uid;
   setTimeout(()=>onSession(session),0)});

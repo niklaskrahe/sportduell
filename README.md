@@ -16,9 +16,7 @@ Wöchentliches Sportduell als installierbare Web-App (PWA). Daten in Supabase, H
 ## Einrichtung
 
 1. **SQL:** In `supabase-setup.sql` Julians E-Mail eintragen (Abschnitt 5). Dann in Supabase *SQL Editor → New query*, alles einfügen und *Run*.
-2. **E-Mail-Code aktivieren:** *Authentication → Emails → Templates → Magic Link*. Im Text diese Zeile ergänzen:
-   `<p>Dein Code: <b>{{ .Token }}</b></p>`
-   (Ohne den Code würde der Link in Safari statt in der installierten App einloggen.)
+2. **Anmeldung:** Läuft über E-Mail + Passwort. Unter *Authentication → Sign In / Providers → Email* muss „Confirm email“ **an** bleiben (sonst könnte sich jemand mit Julians Adresse registrieren).
 3. **GitHub:** Alle Dateien außer `supabase-setup.sql` ins Repo hochladen. *Settings → Pages → Source: Deploy from a branch → main / (root) → Save.*
    Nach ca. 1 Minute läuft die App unter `https://<benutzername>.github.io/<repo>/`.
 4. **Supabase-URL hinterlegen:** *Authentication → URL Configuration → Site URL* auf die GitHub-Pages-Adresse setzen.

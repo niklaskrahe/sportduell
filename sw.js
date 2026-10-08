@@ -1,6 +1,6 @@
 // Service Worker: hält die App-Dateien offline bereit.
 // Bei jeder Änderung an den Dateien VERSION hochzählen.
-const VERSION = "sportduell-v1";
+const VERSION = "sportduell-v2";
 const ASSETS = [
   "./", "./index.html", "./config.js", "./supabase.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png", "./icons/favicon-32.png"
