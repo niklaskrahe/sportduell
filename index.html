@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sportduell</title>
+<meta name="description" content="Wöchentliches Sportduell mit Punktesystem">
+<meta name="theme-color" content="#16202b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sportduell">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: Anzeigetafel mit Wochenwahl oben, darunter Tabs (Duell, Historie, Punktetabelle, Einstellungen) */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --track:#eef1f5; --line:#d9dee5; --fg:#16202b; --muted:#5b6774;
+  --a:#1f6fd1; --b:#d2531a; --a-soft:#dce9fa; --b-soft:#f9e3d7; --good:#1d7a4a; --warn:#a6262a; --note:#fff4d6;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --body:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#10161d; --surface:#18212b; --track:#141c25; --line:#2b3642; --fg:#e7edf3; --muted:#97a3b0;
+  --a:#5aa2f5; --b:#f0834f; --a-soft:#1c3149; --b-soft:#41291c; --good:#5cc48c; --warn:#f07a7e; --note:#3a3220; color-scheme:dark}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+[hidden]{display:none!important}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:max(16px,env(safe-area-inset-left,0px));padding-block:20px 48px;display:grid;gap:20px}
+h1,h2,h3{font-family:var(--display);font-weight:800;text-transform:uppercase;letter-spacing:.02em;margin:0;text-wrap:balance}
+h1{font-size:clamp(1.9rem,6vw,3rem);line-height:1}
+h2{font-size:1.45rem;line-height:1.1}
+h3{font-size:1.1rem}
+p{margin:0}
+.sub{color:var(--muted);margin-top:.35rem;max-width:65ch}
+.label{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.hint{color:var(--muted);font-size:.82rem}
+.ca{color:var(--a)} .cb{color:var(--b)}
+.banner{background:var(--note);border:1px solid var(--line);border-radius:4px;padding:10px 12px;font-size:.9rem;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+
+/* Anzeigetafel */
+.board{display:grid;grid-template-columns:1fr auto 1fr;grid-template-areas:"a v b";background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.side{padding:16px 20px;display:grid;gap:2px;align-content:start;min-width:0}
+.side.a{grid-area:a;border-top:5px solid var(--a)} .side.b{grid-area:b;border-top:5px solid var(--b);text-align:right;justify-items:end}
+.pname{font-family:var(--display);font-weight:800;font-size:1.4rem;text-transform:uppercase;overflow-wrap:anywhere}
+.score{font-family:var(--display);font-weight:800;font-size:clamp(2.6rem,9vw,4.5rem);line-height:1;font-variant-numeric:tabular-nums}
+.side.a .score{color:var(--a)} .side.b .score{color:var(--b)}
+.vs{grid-area:v;display:grid;place-content:center;justify-items:center;gap:6px;padding:12px;border-inline:1px solid var(--line);text-align:center}
+.wk{display:flex;align-items:center;gap:6px}
+.wk strong{display:block;font-family:var(--display);font-size:1.35rem;line-height:1}
+.wk span{display:block;font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.nav{width:36px;height:36px;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:4px;font-size:1.2rem;line-height:1;padding:0}
+.nav:disabled{opacity:.35}
+.link{background:none;border:0;padding:0;color:var(--muted);text-decoration:underline;text-underline-offset:3px;font-size:.8rem;font-weight:500}
+.side.a .link{justify-self:start} .side.b .link{justify-self:end}
+@media (max-width:560px){
+  .board{grid-template-columns:1fr 1fr;grid-template-areas:"v v" "a b"}
+  .vs{border-inline:0;border-bottom:1px solid var(--line)}
+  .side{padding:12px 14px}
+}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;border-bottom:2px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tabs button{background:none;border:0;border-bottom:3px solid transparent;margin-bottom:-2px;padding:8px 12px;font-family:var(--display);font-weight:600;font-size:1.05rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--fg)}
+
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:20px;align-items:start}
+@media (max-width:820px){.cols{grid-template-columns:1fr}}
+.stack{display:grid;gap:20px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px;display:grid;gap:14px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+
+/* Formulare */
+form{display:grid;gap:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field{display:grid;gap:4px;min-width:0}
+select,input[type=number],input[type=text],input[type=date],input[type=email]{font:inherit;font-size:16px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:9px 10px;width:100%;min-width:0}
+select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--a);outline-offset:1px}
+.me{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:4px;font-weight:600}
+.me.A{background:var(--a-soft);color:var(--a)} .me.B{background:var(--b-soft);color:var(--b)}
+.preview{display:flex;justify-content:space-between;align-items:baseline;gap:10px;border-top:1px dashed var(--line);padding-top:10px}
+.preview .pts{font-family:var(--display);font-weight:800;font-size:2rem;font-variant-numeric:tabular-nums}
+button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.primary{background:var(--fg);color:var(--bg);border:0;padding:11px 14px;border-radius:4px;font-weight:600}
+.primary:disabled{opacity:.45;cursor:not-allowed}
+.ghost{background:transparent;border:1px solid var(--line);color:var(--fg);padding:7px 11px;border-radius:4px;font-size:.85rem;font-weight:500}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap}
+.toast{font-size:.88rem;color:var(--good);min-height:1.3em}
+.toast.err{color:var(--warn)}
+
+/* Einträge */
+.log{list-style:none;margin:0;padding:0}
+.log li{display:grid;grid-template-columns:6px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:.9rem}
+.log li:last-child{border-bottom:0}
+.dot{width:6px;height:30px;border-radius:2px}
+.dot.A{background:var(--a)} .dot.B{background:var(--b)}
+.log .t{min-width:0}
+.log .t b{font-weight:600}
+.log .meta{display:block;font-size:.78rem;color:var(--muted)}
+.log .p{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.log .x{border:0;background:none;color:var(--muted);padding:4px 8px;font-size:1.1rem;line-height:1;min-width:32px}
+.log li.empty{display:block;color:var(--muted);border:0}
+
+/* Spiegel-Balken */
+.bars{display:grid;gap:10px}
+.bars-legend{display:grid;grid-template-columns:1fr 1fr;font-weight:600;font-size:.85rem}
+.bars-legend span:last-child{text-align:right}
+.bar-row{display:grid;gap:3px}
+.bar-name{text-align:center;font-size:.85rem;font-weight:600}
+.bar-pair{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.half{position:relative;height:26px;background:var(--track);border-radius:3px;overflow:hidden}
+.half i{position:absolute;top:0;bottom:0}
+.half.A i{right:0;background:var(--a-soft);border-left:3px solid var(--a)}
+.half.B i{left:0;background:var(--b-soft);border-right:3px solid var(--b)}
+.half span{position:relative;display:block;padding:0 7px;font-family:var(--mono);font-size:.76rem;line-height:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.half.B span{text-align:right}
+.empty{color:var(--muted);font-size:.9rem;padding:8px 0}
+
+/* Tabellen */
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td.n,th.n{font-family:var(--mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+th.n{font-family:var(--body)}
+tr.cat td{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding-top:16px;border-bottom:2px solid var(--line)}
+td.eq{color:var(--muted);font-size:.82rem}
+td input[type=number]{width:6.5rem;padding:5px 8px}
+.wkbtn{background:none;border:0;padding:0;color:var(--fg);font-weight:600;text-align:left;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.wkbtn small{display:block;font-weight:400;color:var(--muted);text-decoration:none;font-size:.78rem}
+.chip{display:inline-block;padding:2px 8px;border-radius:99px;font-size:.76rem;font-weight:600;white-space:nowrap}
+.chip.A{background:var(--a-soft);color:var(--a)} .chip.B{background:var(--b-soft);color:var(--b)}
+.chip.D{background:var(--track);color:var(--muted)} .chip.L{border:1px dashed var(--line);color:var(--muted)}
+
+/* Bilanz */
+.tally{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}
+.tally .big{font-family:var(--display);font-weight:800;font-size:3.2rem;line-height:1;font-variant-numeric:tabular-nums}
+.tally .mid{text-align:center;color:var(--muted);font-size:.85rem}
+.tally > div:last-child{text-align:right}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid var(--line);padding-top:12px}
+.facts dl{margin:0;display:grid;gap:6px}
+.facts dl:last-child{text-align:right}
+.facts dt{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.facts dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
+.rules div{border-top:2px solid var(--fg);padding-top:8px}
+.rules h3{margin-bottom:4px}
+.rules p{color:var(--muted);font-size:.9rem}
+
+/* Login */
+.login{max-width:420px;margin:8vh auto 0;display:grid;gap:18px}
+.login .logo{width:64px;height:64px;border-radius:14px}
+.code-input{letter-spacing:.3em;font-family:var(--mono);font-size:1.4rem!important;text-align:center}
+@media (prefers-reduced-motion:no-preference){.half i{transition:width .3s ease}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<main class="wrap" id="vLogin" hidden>
+  <div class="login">
+    <img class="logo" src="icons/icon-192.png" alt="">
+    <div><h1>Sportduell</h1><p class="sub">Melde dich mit deiner E-Mail-Adresse an. Du bekommst einen Code per Mail.</p></div>
+    <form class="panel" id="fEmail">
+      <div class="field"><span class="label">E-Mail</span><input type="email" id="lEmail" autocomplete="email" required aria-label="E-Mail"></div>
+      <button class="primary" type="submit" id="bSend">Code senden</button>
+      <p class="toast" id="lToast1" role="status"></p>
+    </form>
+    <form class="panel" id="fCode" hidden>
+      <p>Code an <b id="lEmailShown"></b> geschickt. Schau auch im Spam-Ordner nach.</p>
+      <div class="field"><span class="label">Code aus der E-Mail</span><input type="text" id="lCode" inputmode="numeric" autocomplete="one-time-code" maxlength="10" class="code-input" aria-label="Code"></div>
+      <button class="primary" type="submit" id="bVerify">Anmelden</button>
+      <button class="link" type="button" id="bBack">Andere E-Mail-Adresse</button>
+      <p class="toast" id="lToast2" role="status"></p>
+    </form>
+  </div>
+</main>
+
+<!-- KEIN ZUGANG -->
+<main class="wrap" id="vDenied" hidden>
+  <div class="login">
+    <h1>Kein Zugang</h1>
+    <p>Die Adresse <b id="dEmail"></b> ist für dieses Duell nicht freigeschaltet. Melde dich mit der Adresse an, die in der Datenbank eingetragen ist.</p>
+    <button class="primary" type="button" id="bDeniedOut">Abmelden</button>
+  </div>
+</main>
+
+<!-- APP -->
+<div class="wrap" id="vApp" hidden>
+  <header>
+    <div><h1>Wochen-Sportduell</h1><p class="sub" id="status"></p></div>
+  </header>
+  <div class="banner" id="offline" hidden><span>Keine Verbindung. Du siehst den zuletzt geladenen Stand, Speichern geht gerade nicht.</span></div>
+  <div class="banner" id="install" hidden><span id="installText"></span><span class="btnrow"><button class="ghost" id="bInstall" type="button" hidden>Installieren</button><button class="link" id="bInstallX" type="button">Ausblenden</button></span></div>
+
+  <section class="board" aria-label="Wochenstand">
+    <div class="side a">
+      <span class="pname" id="nameA">Niklas</span>
+      <div class="score" id="scoreA">0</div>
+      <span class="label" id="leadA">&nbsp;</span>
+      <button class="link" type="button" data-fix="A" hidden>Punktestand korrigieren</button>
+    </div>
+    <div class="vs">
+      <div class="wk">
+        <button class="nav" id="prevW" type="button" aria-label="Vorherige Woche">‹</button>
+        <div><strong id="kw">KW</strong><span id="range"></span></div>
+        <button class="nav" id="nextW" type="button" aria-label="Nächste Woche">›</button>
+      </div>
+      <button class="link" id="todayW" type="button" hidden>Zur aktuellen Woche</button>
+    </div>
+    <div class="side b">
+      <span class="pname" id="nameB">Julian</span>
+      <div class="score" id="scoreB">0</div>
+      <span class="label" id="leadB">&nbsp;</span>
+      <button class="link" type="button" data-fix="B" hidden>Punktestand korrigieren</button>
+    </div>
+  </section>
+
+  <nav class="tabs" role="tablist" aria-label="Bereiche">
+    <button role="tab" id="tab-duell" aria-controls="p-duell" aria-selected="true" type="button">Duell</button>
+    <button role="tab" id="tab-historie" aria-controls="p-historie" aria-selected="false" type="button">Historie</button>
+    <button role="tab" id="tab-punkte" aria-controls="p-punkte" aria-selected="false" type="button">Punkte</button>
+    <button role="tab" id="tab-einstellungen" aria-controls="p-einstellungen" aria-selected="false" type="button">Einstellungen</button>
+  </nav>
+
+  <!-- DUELL -->
+  <section id="p-duell" role="tabpanel" aria-labelledby="tab-duell" class="cols">
+    <div class="panel">
+      <h2>Einheit eintragen</h2>
+      <form id="f">
+        <div class="me" id="meChip">Du trägst ein als …</div>
+        <div class="row">
+          <div class="field"><span class="label">Übung</span><select id="ex" aria-label="Übung"></select></div>
+          <div class="field"><span class="label">Datum</span><input type="date" id="date" aria-label="Datum"></div>
+        </div>
+        <div class="row">
+          <div class="field"><span class="label" id="l1">Menge</span><input type="number" id="v1" min="0" step="any" inputmode="decimal" value="5" aria-labelledby="l1"></div>
+          <div class="field" id="f2"><span class="label" id="l2">Zusatz</span><input type="number" id="v2" min="0" step="any" inputmode="decimal" aria-labelledby="l2"></div>
+        </div>
+        <div class="field" id="f3"><span class="label" id="l3">Körpergewicht (kg)</span><input type="number" id="bw" min="30" step="any" inputmode="decimal" value="80" aria-labelledby="l3"></div>
+        <p class="hint" id="hint"></p>
+        <div class="preview"><span class="label">Ergibt</span><span class="pts" id="prev">0</span></div>
+        <button class="primary" type="submit" id="submit">Eintragen</button>
+        <p class="toast" id="toast" role="status"></p>
+      </form>
+    </div>
+    <div class="stack">
+      <div class="panel">
+        <div class="panel-head"><h2 id="wkTitle">Diese Woche</h2><span class="label" id="wkCount"></span></div>
+        <ul class="log" id="wkLog"></ul>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Übungen der Woche</h2><span class="label">Punkte je Übung</span></div>
+        <div id="wkBars"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HISTORIE -->
+  <section id="p-historie" role="tabpanel" aria-labelledby="tab-historie" class="stack" hidden>
+    <div class="cols">
+      <div class="panel">
+        <div class="panel-head"><h2>Bilanz</h2><span class="label">Wochensiege</span></div>
+        <div class="tally">
+          <div><span class="label nA">Niklas</span><div class="big ca" id="winsA">0</div></div>
+          <div class="mid" id="tallyMid"></div>
+          <div><span class="label nB">Julian</span><div class="big cb" id="winsB">0</div></div>
+        </div>
+        <div class="facts" id="facts"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Wochenergebnisse</h2><span class="label">Woche antippen zum Öffnen</span></div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Woche</th><th class="n nA">Niklas</th><th class="n nB">Julian</th><th>Ergebnis</th></tr></thead>
+          <tbody id="weeksBody"></tbody>
+        </table></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Wer hat was gemacht</h2><span class="label">Alle Wochen</span></div>
+      <div id="allBars"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Alle Einträge</h2><span class="label" id="allCount"></span></div>
+      <div class="filters">
+        <div class="field"><span class="label">Person</span><select id="fWho" aria-label="Person filtern"><option value="">Beide</option><option value="A" class="nA">Niklas</option><option value="B" class="nB">Julian</option></select></div>
+        <div class="field"><span class="label">Übung</span><select id="fEx" aria-label="Übung filtern"></select></div>
+        <div class="field"><span class="label">Zeitraum</span><select id="fSpan" aria-label="Zeitraum filtern"><option value="0">Alles</option><option value="4">Letzte 4 Wochen</option><option value="12">Letzte 12 Wochen</option></select></div>
+      </div>
+      <ul class="log" id="allLog"></ul>
+      <button class="ghost" id="more" type="button" hidden>Weitere anzeigen</button>
+    </div>
+  </section>
+
+  <!-- PUNKTETABELLE -->
+  <section id="p-punkte" role="tabpanel" aria-labelledby="tab-punkte" class="stack" hidden>
+    <div class="panel">
+      <div class="panel-head"><h2>Punktetabelle</h2><span class="label">Basis: 1 km Laufen = 10 Punkte</span></div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Übung</th><th>Einheit</th><th class="n">Punkte</th><th>≙ 1 km Laufen</th></tr></thead>
+        <tbody id="tab"></tbody>
+      </table></div>
+      <p class="hint">Hantelübungen: Punkte = Wiederholungen × (Gewicht ÷ Körpergewicht) × Faktor. So zählt die relative Kraft, nicht wer schwerer ist. Werte lassen sich unter Einstellungen anpassen.</p>
+    </div>
+    <div class="stack">
+      <h2>Spielregeln</h2>
+      <div class="rules">
+        <div><h3>Woche</h3><p>Montag 0:00 bis Sonntag 23:59. Wer mehr Punkte hat, gewinnt die Woche. Die Bilanz zählt nur abgeschlossene Wochen.</p></div>
+        <div><h3>Saubere Wiederholungen</h3><p>Liegestütz mit Brust fast am Boden, Klimmzug mit Kinn über der Stange aus dem Hang, Kniebeuge bis Oberschenkel waagerecht.</p></div>
+        <div><h3>Nachweis</h3><p>Ausdauer per Strava oder Uhr-Screenshot, Kraft per kurzem Foto oder Video vom letzten Satz.</p></div>
+        <div><h3>Deckel pro Übung</h3><p>Optional lässt sich festlegen, wie viele Punkte eine einzelne Übung pro Woche höchstens bringt. Verhindert, dass jemand nur noch Liegestütze farmt.</p></div>
+        <div><h3>Sonstige Sportarten</h3><p>Fußball, Tennis, Klettern usw. zählen nach Zeit und Intensität. Im Zweifel per Puls: locker unter 70 %, moderat 70–80 %, intensiv über 80 % HFmax.</p></div>
+        <div><h3>Jeder für sich</h3><p>Jeder trägt nur seine eigenen Einheiten ein und kann nur eigene Einträge löschen oder korrigieren. Korrekturen stehen sichtbar in der Historie.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EINSTELLUNGEN -->
+  <section id="p-einstellungen" role="tabpanel" aria-labelledby="tab-einstellungen" class="stack" hidden>
+    <div class="cols">
+      <div class="panel">
+        <h2>Spieler</h2>
+        <div class="row">
+          <div class="field"><span class="label">Name Spieler 1</span><input type="text" id="sNameA" maxlength="30" aria-label="Name Spieler 1"></div>
+          <div class="field"><span class="label">Name Spieler 2</span><input type="text" id="sNameB" maxlength="30" aria-label="Name Spieler 2"></div>
+        </div>
+        <div class="row">
+          <div class="field"><span class="label" id="lbwA">Körpergewicht (kg)</span><input type="number" id="sBwA" min="30" max="300" step="any" inputmode="decimal" aria-labelledby="lbwA"></div>
+          <div class="field"><span class="label" id="lbwB">Körpergewicht (kg)</span><input type="number" id="sBwB" min="30" max="300" step="any" inputmode="decimal" aria-labelledby="lbwB"></div>
+        </div>
+        <p class="hint">Das Körpergewicht wird beim Eintragen von Hantelübungen automatisch vorausgefüllt.</p>
+        <p class="toast" id="pToast" role="status"></p>
+      </div>
+      <div class="panel" id="fixPanel">
+        <div class="panel-head"><h2>Eigenen Punktestand korrigieren</h2><span class="label" id="fixWeek"></span></div>
+        <form id="fix">
+          <div class="row">
+            <div class="field"><span class="label">Art</span><select id="cMode" aria-label="Art der Korrektur"><option value="add">Punkte hinzufügen / abziehen</option><option value="set">Punktestand setzen auf</option></select></div>
+            <div class="field"><span class="label" id="lcVal">Punkte (+/−)</span><input type="number" id="cVal" step="any" inputmode="decimal" aria-labelledby="lcVal"></div>
+          </div>
+          <div class="field"><span class="label">Grund (optional)</span><input type="text" id="cNote" maxlength="80" placeholder="z. B. Lauf vergessen" aria-label="Grund"></div>
+          <p class="hint" id="cPrev"></p>
+          <button class="primary" type="submit" id="cSubmit">Korrektur eintragen</button>
+          <p class="toast" id="cToast" role="status"></p>
+        </form>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Punktwerte</h2><button class="ghost" id="resetPts" type="button">Alle auf Standard</button></div>
+      <p class="hint">Gilt für euch beide. Leeres Feld = Standardwert. Geänderte Werte gelten für neue Einträge; bereits eingetragene Einheiten behalten ihre Punkte.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Übung</th><th>Einheit</th><th class="n">Standard</th><th class="n">Euer Wert</th></tr></thead>
+        <tbody id="ptsEdit"></tbody>
+      </table></div>
+    </div>
+
+    <div class="cols">
+      <div class="panel">
+        <h2>Deckel pro Übung</h2>
+        <div class="field"><span class="label" id="lcap">Max. Punkte pro Übung und Woche (0 = aus)</span><input type="number" id="sCap" min="0" step="any" inputmode="decimal" aria-labelledby="lcap"></div>
+        <p class="hint">Beispiel 150: Mehr als 150 Punkte aus Liegestützen pro Woche zählen nicht. Korrekturen sind ausgenommen. Wirkt sofort auf alle Wochen.</p>
+      </div>
+      <div class="panel">
+        <h2>Konto</h2>
+        <p>Angemeldet als <b id="accEmail"></b></p>
+        <p class="hint" id="appVersion"></p>
+        <div class="btnrow"><button class="ghost" id="bReload" type="button">Neu laden</button><button class="ghost" id="bLogout" type="button">Abmelden</button></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="config.js"></script>
+<script src="supabase.js"></script>
+<script>
+"use strict";
+const APP_VERSION="1.0";
+const EX=[
+ {cat:"Ausdauer"},
+ {id:"run",n:"Laufen",u:"1 km",t:"dist",p:10,hm:5},
+ {id:"walk",n:"Wandern / Gehen",u:"1 km",t:"dist",p:4,hm:5},
+ {id:"bike",n:"Radfahren (Straße)",u:"1 km",t:"dist",p:3,hm:3},
+ {id:"mtb",n:"Mountainbike",u:"1 km",t:"dist",p:4,hm:3},
+ {id:"swim",n:"Schwimmen",u:"100 m",t:"dist",p:4,per:100,m:true},
+ {id:"row",n:"Rudern (Ergometer)",u:"1 km",t:"dist",p:8},
+ {id:"rope",n:"Seilspringen",u:"1 min",t:"min",p:2},
+ {cat:"Eigengewicht"},
+ {id:"push",n:"Liegestütze",u:"1 Wdh",t:"reps",p:0.5},
+ {id:"pull",n:"Klimmzüge",u:"1 Wdh",t:"reps",p:2},
+ {id:"dips",n:"Dips",u:"1 Wdh",t:"reps",p:1},
+ {id:"burp",n:"Burpees",u:"1 Wdh",t:"reps",p:1},
+ {id:"squat",n:"Kniebeugen (ohne Gewicht)",u:"1 Wdh",t:"reps",p:0.3},
+ {id:"lunge",n:"Ausfallschritte (je Bein)",u:"1 Wdh",t:"reps",p:0.3},
+ {id:"sit",n:"Sit-ups / Crunches",u:"1 Wdh",t:"reps",p:0.25},
+ {id:"plank",n:"Plank",u:"1 min",t:"min",p:4},
+ {cat:"Hantel (relativ zum Körpergewicht)"},
+ {id:"bench",n:"Bankdrücken",u:"Faktor",t:"lift",p:1.5},
+ {id:"bsq",n:"Kniebeuge (Langhantel)",u:"Faktor",t:"lift",p:1.2},
+ {id:"dl",n:"Kreuzheben",u:"Faktor",t:"lift",p:1.2},
+ {id:"ohp",n:"Schulterdrücken",u:"Faktor",t:"lift",p:2},
+ {cat:"Sonstige Sportarten (Fußball, Tennis, Klettern …)"},
+ {id:"oL",n:"Sonstiges locker",u:"10 min",t:"min",p:6,per:10},
+ {id:"oM",n:"Sonstiges moderat",u:"10 min",t:"min",p:10,per:10},
+ {id:"oH",n:"Sonstiges intensiv",u:"10 min",t:"min",p:15,per:10},
+];
+const byId=Object.fromEntries(EX.filter(e=>e.id).map(e=>[e.id,e]));
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const r1=x=>Math.round(x*10)/10;
+const fmt=x=>r1(x).toLocaleString("de-DE");
+const sfmt=x=>(x>0?"+":x<0?"−":"")+fmt(Math.abs(x));
+const pad=n=>String(n).padStart(2,"0");
+const DN=["So","Mo","Di","Mi","Do","Fr","Sa"];
+const LS={get(k,f){try{const v=localStorage.getItem(k);return v==null?f:JSON.parse(v)}catch(_){return f}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(_){}}};
+
+// ---------- Datum & Woche ----------
+const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseYmd=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d,12)};
+const monday=d=>{const x=new Date(d.getFullYear(),d.getMonth(),d.getDate(),12);x.setDate(x.getDate()-((x.getDay()+6)%7));return x};
+const kwOf=d=>{const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));t.setUTCDate(t.getUTCDate()+4-(t.getUTCDay()||7));return Math.ceil(((t-Date.UTC(t.getUTCFullYear(),0,1))/864e5+1)/7)};
+const rangeOf=mon=>{const s=new Date(mon);s.setDate(s.getDate()+6);return `${mon.getDate()}.${mon.getMonth()+1}.–${s.getDate()}.${s.getMonth()+1}.${s.getFullYear()}`};
+const dayLabel=s=>{const d=parseYmd(s);return `${DN[d.getDay()]} ${d.getDate()}.${d.getMonth()+1}.`};
+const curWeek=()=>ymd(monday(new Date()));
+let selWeek=curWeek();
+
+// ---------- Zustand ----------
+const DEF={names:{A:"Niklas",B:"Julian"},bw:{A:80,B:80},points:{},cap:0};
+let cfg=structuredClone(DEF), entries=[], mySlot=null, myEmail="", loaded=false, offline=false, shown=60;
+const nm=w=>cfg.names[w]||(w==="A"?"Spieler 1":"Spieler 2");
+const P=id=>{const v=cfg.points[id];return (typeof v==="number"&&v>=0)?v:byId[id].p};
+function calc(e,v1,v2,bw){v1=+v1||0;v2=+v2||0;bw=+bw||0;const p=P(e.id);
+  if(e.t==="lift") return bw>0?v1*(v2/bw)*p:0;
+  return v1/(e.per||1)*p+(e.hm?v2/100*e.hm:0)}
+function amountText(e,v1,v2){v1=+v1||0;v2=+v2||0;
+  if(e.t==="lift") return `${fmt(v1)} Wdh × ${fmt(v2)} kg`;
+  if(e.t==="dist") return e.m?`${fmt(v1)} m`:`${fmt(v1)} km`+(v2?` · ${fmt(v2)} Hm`:"");
+  if(e.t==="reps") return `${fmt(v1)} Wdh`;
+  return `${fmt(v1)} min`}
+function setToast(el,msg,err){el.textContent=msg;el.classList.toggle("err",!!err);clearTimeout(el._t);el._t=setTimeout(()=>{el.textContent=""},5000)}
+
+// ---------- Supabase ----------
+const C=window.SPORTDUELL_CONFIG||{};
+const sb=window.supabase.createClient(C.url,C.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+let channel=null;
+
+function show(view){for(const v of ["vLogin","vDenied","vApp"])$(v).hidden=v!==view}
+function normEntry(r){return{id:r.id,who:r.who,ex:r.ex,label:r.label,amount:r.amount||"",v1:+r.v1||0,v2:+r.v2||0,bw:+r.bw||0,pts:+r.pts||0,date:r.date,week:r.week,created:Date.parse(r.created_at)||0}}
+function errText(error){
+  const m=(error&&(error.message||error.error_description))||"";
+  if(/fetch|network|Failed/i.test(m))return"Keine Verbindung. Bitte später nochmal versuchen.";
+  if(/row-level security|permission/i.test(m))return"Das darfst du nicht ändern.";
+  return"Fehler: "+m}
+
+async function loadAll(){
+  const [p,s,e]=await Promise.all([
+    sb.from("players").select("slot,email,name,bw"),
+    sb.from("settings").select("points,cap").eq("id",1).maybeSingle(),
+    sb.from("entries").select("*").order("created_at",{ascending:false}).limit(10000)
+  ]);
+  const err=p.error||s.error||e.error;
+  if(err){
+    const cache=LS.get("sd-cache",null);
+    if(cache&&cache.email===myEmail){cfg=cache.cfg;entries=cache.entries;mySlot=cache.mySlot}
+    offline=true;loaded=true;
+    if(!mySlot){show("vLogin");setToast($("lToast1"),errText(err),true);return}
+    show("vApp");renderAll();return}
+  offline=false;
+  const players=p.data||[];
+  const me=players.find(x=>(x.email||"").toLowerCase()===myEmail.toLowerCase());
+  if(!me){mySlot=null;$("dEmail").textContent=myEmail;show("vDenied");return}
+  mySlot=me.slot;
+  cfg={names:{...DEF.names},bw:{...DEF.bw},points:{},cap:0};
+  for(const x of players){cfg.names[x.slot]=x.name;cfg.bw[x.slot]=+x.bw||80}
+  if(s.data){cfg.points=s.data.points||{};cfg.cap=+s.data.cap||0}
+  entries=(e.data||[]).map(normEntry);
+  loaded=true;
+  LS.set("sd-cache",{email:myEmail,cfg,entries,mySlot});
+  show("vApp");renderAll()}
+
+let reloadT=null;
+function scheduleReload(){clearTimeout(reloadT);reloadT=setTimeout(()=>loadAll(),250)}
+function subscribe(){
+  if(channel)return;
+  channel=sb.channel("duell")
+    .on("postgres_changes",{event:"*",schema:"public",table:"entries"},scheduleReload)
+    .on("postgres_changes",{event:"*",schema:"public",table:"players"},scheduleReload)
+    .on("postgres_changes",{event:"*",schema:"public",table:"settings"},scheduleReload)
+    .subscribe()}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&myEmail)scheduleReload()});
+addEventListener("online",()=>{if(myEmail)scheduleReload()});
+
+const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+async function addEntry(en,toastEl){
+  const row={id:newId(),who:mySlot,ex:en.ex,label:en.label,amount:en.amount,v1:en.v1,v2:en.v2,bw:en.bw,pts:en.pts,date:en.date,week:en.week};
+  const {error}=await sb.from("entries").insert(row);
+  if(error){setToast(toastEl,errText(error),true);return false}
+  entries.unshift({...row,created:Date.now()});renderAll();scheduleReload();return true}
+async function delEntry(id){
+  const {error}=await sb.from("entries").delete().eq("id",id);
+  if(error){setToast($("toast"),errText(error),true);return}
+  entries=entries.filter(x=>x.id!==id);renderAll()}
+async function savePlayer(slot){
+  const {error}=await sb.from("players").update({name:cfg.names[slot],bw:cfg.bw[slot]}).eq("slot",slot);
+  if(error)setToast($("pToast"),errText(error),true);else setToast($("pToast"),"Gespeichert.");renderAll()}
+async function saveSettings(){
+  renderAll();
+  const {error}=await sb.from("settings").update({points:cfg.points,cap:cfg.cap}).eq("id",1);
+  if(error)setToast($("pToast"),errText(error),true)}
+
+// ---------- Berechnung ----------
+function weekScore(list,who){
+  const byEx={};let extra=0;
+  for(const en of list){if(en.who!==who)continue;if(byId[en.ex])byEx[en.ex]=(byEx[en.ex]||0)+en.pts;else extra+=en.pts}
+  let raw=0,capped=0;for(const k in byEx){raw+=byEx[k];capped+=cfg.cap>0?Math.min(byEx[k],cfg.cap):byEx[k]}
+  return{total:r1(capped+extra),cut:r1(raw-capped)}}
+const inWeek=w=>entries.filter(e=>e.week===w);
+function sorted(list){return list.slice().sort((a,b)=>(b.date||"").localeCompare(a.date||"")||(b.created||0)-(a.created||0))}
+
+// ---------- Rendern ----------
+function renderNames(){
+  for(const w of ["A","B"]){$("name"+w).textContent=nm(w);document.querySelectorAll(".n"+w).forEach(el=>el.textContent=nm(w))}
+  $("lbwA").textContent=`Körpergewicht ${nm("A")} (kg)`;$("lbwB").textContent=`Körpergewicht ${nm("B")} (kg)`;
+  const chip=$("meChip");chip.className="me "+(mySlot||"A");chip.textContent=`Du trägst ein als ${nm(mySlot||"A")}`;
+  document.querySelectorAll("[data-fix]").forEach(b=>b.hidden=b.dataset.fix!==mySlot)}
+function renderBoard(){
+  const list=inWeek(selWeek),a=weekScore(list,"A"),b=weekScore(list,"B");
+  $("scoreA").textContent=fmt(a.total);$("scoreB").textContent=fmt(b.total);
+  const lead=(x,y,c)=>x.total>y.total?`führt mit ${fmt(x.total-y.total)}`:(x.total===y.total&&x.total>0&&c?"Gleichstand":" ");
+  $("leadA").textContent=lead(a,b,true);$("leadB").textContent=lead(b,a,false);
+  if(a.cut>0)$("leadA").textContent+=` · ${fmt(a.cut)} gedeckelt`;
+  if(b.cut>0)$("leadB").textContent+=` · ${fmt(b.cut)} gedeckelt`;
+  const mon=parseYmd(selWeek);
+  $("kw").textContent="KW "+kwOf(mon);$("range").textContent=rangeOf(mon);
+  const cur=curWeek();$("todayW").hidden=selWeek===cur;$("nextW").disabled=selWeek>=cur;
+  $("wkTitle").textContent=selWeek===cur?"Diese Woche":"KW "+kwOf(mon);
+  $("fixWeek").textContent=`für KW ${kwOf(mon)}`}
+function entryLi(en){
+  const li=document.createElement("li");
+  const isAdj=!byId[en.ex];
+  const title=en.ex==="adj"?"Korrektur":esc(en.label);
+  const meta=[esc(nm(en.who)),en.date?dayLabel(en.date):null].filter(Boolean).join(" · ");
+  li.innerHTML=`<span class="dot ${en.who==="B"?"B":"A"}" title="${esc(nm(en.who))}"></span>
+    <span class="t"><b>${title}</b>${en.amount?" · "+esc(en.amount):""}<span class="meta">${meta}</span></span>
+    <span class="p">${isAdj?sfmt(en.pts):fmt(en.pts)}</span>`;
+  if(en.who===mySlot&&!offline){const x=document.createElement("button");x.className="x";x.type="button";x.textContent="×";
+    x.setAttribute("aria-label",`Eintrag löschen: ${en.label||"Korrektur"}`);
+    x.onclick=()=>{if(x.dataset.armed){delEntry(en.id)}else{x.dataset.armed="1";x.textContent="Löschen?";x.style.fontSize=".8rem";x.style.color="var(--warn)";setTimeout(()=>{delete x.dataset.armed;x.textContent="×";x.style.fontSize="";x.style.color=""},3000)}};
+    li.appendChild(x)}else li.appendChild(document.createElement("span"));
+  return li}
+function renderWeek(){
+  const list=sorted(inWeek(selWeek)),ul=$("wkLog");ul.innerHTML="";
+  $("wkCount").textContent=list.length?`${list.length} Einträge`:"";
+  if(!list.length)ul.innerHTML=`<li class="empty">Noch keine Einheiten in dieser Woche.</li>`;
+  else list.forEach(en=>ul.appendChild(entryLi(en)));
+  renderBars(list,$("wkBars"))}
+function aggregate(list){
+  const m={};
+  for(const en of list){const e=byId[en.ex];if(!e)continue;
+    const r=m[en.ex]||(m[en.ex]={e,A:{p:0,a:0,n:0},B:{p:0,a:0,n:0}});
+    const s=r[en.who==="B"?"B":"A"];s.p+=en.pts;s.a+=(+en.v1||0);s.n++}
+  return Object.values(m).sort((x,y)=>(y.A.p+y.B.p)-(x.A.p+x.B.p))}
+function aggAmount(e,a){
+  if(e.t==="dist")return e.m?(a>=1000?`${fmt(a/1000)} km`:`${fmt(a)} m`):`${fmt(a)} km`;
+  if(e.t==="reps"||e.t==="lift")return `${fmt(a)} Wdh`;
+  return `${fmt(a)} min`}
+function renderBars(list,box){
+  const rows=aggregate(list);
+  const adj={A:0,B:0};list.forEach(en=>{if(!byId[en.ex])adj[en.who==="B"?"B":"A"]+=en.pts});
+  if(!rows.length){box.innerHTML=`<p class="empty">Noch keine Übungen eingetragen.</p>`;return}
+  const max=Math.max(...rows.flatMap(r=>[r.A.p,r.B.p]),1);
+  const half=(w,s,e)=>`<div class="half ${w}">${s.p>0?`<i style="width:${(s.p/max*100).toFixed(1)}%"></i>`:""}<span>${s.n?`${aggAmount(e,s.a)} · ${fmt(s.p)}`:"–"}</span></div>`;
+  let h=`<div class="bars"><div class="bars-legend"><span class="ca">${esc(nm("A"))}</span><span class="cb">${esc(nm("B"))}</span></div>`;
+  for(const r of rows)h+=`<div class="bar-row"><div class="bar-name">${esc(r.e.n)}</div><div class="bar-pair">${half("A",r.A,r.e)}${half("B",r.B,r.e)}</div></div>`;
+  h+="</div>";
+  if(adj.A||adj.B)h+=`<p class="hint" style="margin-top:10px">Korrekturen: ${esc(nm("A"))} ${sfmt(r1(adj.A))}, ${esc(nm("B"))} ${sfmt(r1(adj.B))}</p>`;
+  if(cfg.cap>0)h+=`<p class="hint" style="margin-top:6px">Balken zeigen die Punkte vor dem Deckel von ${fmt(cfg.cap)} pro Übung.</p>`;
+  box.innerHTML=h}
+function renderHistory(){
+  const weeks=[...new Set(entries.map(e=>e.week).filter(Boolean))].sort().reverse();
+  const cur=curWeek();let wa=0,wb=0,dr=0,done=0;
+  const body=$("weeksBody");body.innerHTML="";
+  for(const w of weeks){
+    const list=inWeek(w),a=weekScore(list,"A").total,b=weekScore(list,"B").total;
+    let chip;
+    if(w>=cur)chip=`<span class="chip L">läuft</span>`;
+    else{done++;if(a>b){wa++;chip=`<span class="chip A">Sieg ${esc(nm("A"))}</span>`}else if(b>a){wb++;chip=`<span class="chip B">Sieg ${esc(nm("B"))}</span>`}else{dr++;chip=`<span class="chip D">Unentschieden</span>`}}
+    const mon=parseYmd(w);const tr=document.createElement("tr");
+    tr.innerHTML=`<td><button class="wkbtn" type="button">KW ${kwOf(mon)}<small>${rangeOf(mon)}</small></button></td><td class="n ca">${fmt(a)}</td><td class="n cb">${fmt(b)}</td><td>${chip}</td>`;
+    tr.querySelector("button").onclick=()=>{selWeek=w;showTab("duell");renderAll();scrollTo({top:0})};
+    body.appendChild(tr)}
+  if(!weeks.length)body.innerHTML=`<tr><td colspan="4" class="empty">Noch keine Wochen gespielt.</td></tr>`;
+  $("winsA").textContent=wa;$("winsB").textContent=wb;
+  $("tallyMid").innerHTML=`${done} ${done===1?"Woche":"Wochen"}<br>abgeschlossen${dr?`<br>${dr}× unentschieden`:""}`;
+  const fact=w=>{
+    const tot=r1(weeks.reduce((s,k)=>s+weekScore(inWeek(k),w).total,0));
+    const mine=entries.filter(e=>e.who===w&&byId[e.ex]);
+    const by={};mine.forEach(e=>by[e.ex]=(by[e.ex]||0)+e.pts);
+    const top=Object.entries(by).sort((x,y)=>y[1]-x[1])[0];
+    const best=weeks.map(k=>weekScore(inWeek(k),w).total).reduce((m,x)=>Math.max(m,x),0);
+    return `<dl><div><dt>Punkte gesamt</dt><dd>${fmt(tot)}</dd></div><div><dt>Einheiten</dt><dd>${mine.length}</dd></div><div><dt>Beste Woche</dt><dd>${fmt(best)}</dd></div><div><dt>Top-Übung</dt><dd>${top?esc(byId[top[0]].n):"–"}</dd></div></dl>`};
+  $("facts").innerHTML=fact("A")+fact("B");
+  renderBars(entries,$("allBars"));
+  const fEx=$("fEx"),prev=fEx.value,present=new Set(entries.map(e=>e.ex));
+  fEx.innerHTML=`<option value="">Alle Übungen</option>`+EX.filter(e=>e.id&&present.has(e.id)).map(e=>`<option value="${e.id}">${esc(e.n)}</option>`).join("")+(present.has("adj")?`<option value="_adj">Korrekturen</option>`:"");
+  fEx.value=[...fEx.options].some(o=>o.value===prev)?prev:"";
+  renderAllLog()}
+function renderAllLog(){
+  const who=$("fWho").value,ex=$("fEx").value,span=+$("fSpan").value;
+  let from="";if(span){const d=parseYmd(curWeek());d.setDate(d.getDate()-7*(span-1));from=ymd(d)}
+  const list=sorted(entries).filter(e=>(!who||e.who===who)&&(!ex||(ex==="_adj"?!byId[e.ex]:e.ex===ex))&&(!from||(e.week||"")>=from));
+  const ul=$("allLog");ul.innerHTML="";
+  $("allCount").textContent=`${list.length} ${list.length===1?"Eintrag":"Einträge"}`;
+  if(!list.length)ul.innerHTML=`<li class="empty">Keine Einträge für diese Auswahl.</li>`;
+  list.slice(0,shown).forEach(en=>ul.appendChild(entryLi(en)));
+  $("more").hidden=list.length<=shown}
+function renderTable(){
+  const tab=$("tab");tab.innerHTML="";
+  for(const e of EX){const tr=document.createElement("tr");
+    if(e.cat){tr.className="cat";tr.innerHTML=`<td colspan="4">${esc(e.cat)}</td>`}
+    else{const p=P(e.id);let eq,unit=e.u,pts=fmt(p);
+      if(e.t==="lift"){unit="Wdh × Last ÷ KG";pts="× "+fmt(p);eq=`10 Wdh × ${fmt(Math.round(80/p/2.5)*2.5)} kg (bei 80 kg)`}
+      else if(e.t==="dist")eq=e.m?`${fmt(10/p*100)} m`:`${fmt(10/p)} km`;
+      else if(e.t==="reps")eq=`${fmt(10/p)} Wdh`;
+      else eq=`${fmt(10/p*(e.per||1))} min`;
+      if(e.hm)unit+=` · +${e.hm} je 100 Hm`;
+      if(!(p>0))eq="–";
+      tr.innerHTML=`<td>${esc(e.n)}${cfg.points[e.id]!=null?' <span class="chip D">angepasst</span>':""}</td><td>${esc(unit)}</td><td class="n">${pts}</td><td class="eq">${eq}</td>`}
+    tab.appendChild(tr)}}
+function renderPtsEdit(){
+  const body=$("ptsEdit");if(body.contains(document.activeElement))return;
+  body.innerHTML="";
+  for(const e of EX){const tr=document.createElement("tr");
+    if(e.cat){tr.className="cat";tr.innerHTML=`<td colspan="4">${esc(e.cat)}</td>`;body.appendChild(tr);continue}
+    const v=cfg.points[e.id];
+    tr.innerHTML=`<td>${esc(e.n)}</td><td>${e.t==="lift"?"Faktor":esc(e.u)}</td><td class="n">${fmt(e.p)}</td><td class="n"><input type="number" min="0" step="any" inputmode="decimal" id="pt-${e.id}" aria-label="Punkte ${esc(e.n)}" placeholder="${fmt(e.p)}" value="${v!=null?v:""}"></td>`;
+    tr.querySelector("input").addEventListener("change",ev=>{const raw=ev.target.value.replace(",",".");const x=parseFloat(raw);
+      if(raw===""||isNaN(x)||x<0||x===e.p)delete cfg.points[e.id];else cfg.points[e.id]=x;saveSettings()});
+    body.appendChild(tr)}}
+function setVal(id,v){const el=$(id);if(document.activeElement!==el)el.value=v}
+function renderSettings(){
+  setVal("sNameA",cfg.names.A);setVal("sNameB",cfg.names.B);setVal("sBwA",cfg.bw.A);setVal("sBwB",cfg.bw.B);setVal("sCap",cfg.cap||0);
+  ["sNameA","sNameB","sBwA","sBwB","sCap","resetPts","cSubmit","submit"].forEach(id=>$(id).disabled=offline);
+  renderPtsEdit();updateFix();
+  $("accEmail").textContent=myEmail;
+  $("appVersion").textContent=`App-Version ${APP_VERSION}`}
+function renderStatus(){
+  $("status").textContent=offline?"Offline · letzter bekannter Stand":`Angemeldet als ${nm(mySlot)} · Live-Spielstand`;
+  $("offline").hidden=!offline}
+function renderAll(){if(!mySlot)return;renderNames();renderStatus();renderBoard();renderWeek();renderHistory();renderTable();renderSettings();setupForm(true)}
+
+// ---------- Tabs ----------
+const TABS=["duell","historie","punkte","einstellungen"];
+function showTab(t){if(!TABS.includes(t))t="duell";
+  for(const x of TABS){$("tab-"+x).setAttribute("aria-selected",x===t);$("p-"+x).hidden=x!==t}
+  LS.set("sd-tab",t)}
+TABS.forEach(t=>$("tab-"+t).addEventListener("click",()=>showTab(t)));
+
+// ---------- Eintragsformular ----------
+const sel=$("ex");let og=null;
+EX.forEach(e=>{if(e.cat){og=document.createElement("optgroup");og.label=e.cat;sel.appendChild(og)}
+  else{const o=document.createElement("option");o.value=e.id;o.textContent=e.n;og.appendChild(o)}});
+function setupForm(keep){
+  const e=byId[sel.value];
+  $("f2").hidden=!(e.hm||e.t==="lift");$("f3").hidden=e.t!=="lift";
+  const L={dist:e.m?"Meter":"Kilometer",reps:"Wiederholungen",min:"Minuten",lift:"Wiederholungen (gesamt)"};
+  $("l1").textContent=L[e.t];
+  $("l2").textContent=e.t==="lift"?"Gewicht (kg)":"Höhenmeter (optional)";
+  $("hint").textContent=e.t==="lift"?"Mehrere Sätze mit gleichem Gewicht: Wiederholungen zusammenzählen.":e.id.startsWith("o")?"Für Fußball, Tennis, Klettern, Kampfsport und alles ohne eigene Zeile.":"";
+  if(!keep&&document.activeElement!==$("bw"))$("bw").value=cfg.bw[mySlot]||80;
+  updatePreview()}
+function updatePreview(){$("prev").textContent=fmt(calc(byId[sel.value],$("v1").value,$("v2").value,$("bw").value))}
+sel.addEventListener("change",()=>{$("v2").value="";setupForm()});
+["v1","v2","bw"].forEach(i=>$(i).addEventListener("input",updatePreview));
+$("date").value=ymd(new Date());
+$("f").addEventListener("submit",async ev=>{
+  ev.preventDefault();if(!mySlot)return;
+  const e=byId[sel.value],v1=+$("v1").value||0,v2=+$("v2").value||0,bw=+$("bw").value||0;
+  const pts=r1(calc(e,v1,v2,bw));
+  if(!(pts>0)){setToast($("toast"),e.t==="lift"&&!v2?"Bitte Gewicht eintragen.":"Bitte eine Menge größer 0 eintragen.",true);return}
+  const date=$("date").value||ymd(new Date());
+  const en={ex:e.id,label:e.n,amount:amountText(e,v1,v2),v1,v2,bw:e.t==="lift"?bw:0,pts,date,week:ymd(monday(parseYmd(date)))};
+  $("submit").disabled=true;
+  const ok=await addEntry(en,$("toast"));
+  $("submit").disabled=offline;
+  if(ok){setToast($("toast"),`Eingetragen: ${fmt(pts)} Punkte.`);if(en.week!==selWeek){selWeek=en.week;renderAll()}}
+});
+
+// ---------- Woche wählen ----------
+function shiftWeek(n){const d=parseYmd(selWeek);d.setDate(d.getDate()+7*n);const k=ymd(d);if(k<=curWeek()){selWeek=k;renderAll()}}
+$("prevW").onclick=()=>shiftWeek(-1);$("nextW").onclick=()=>shiftWeek(1);
+$("todayW").onclick=()=>{selWeek=curWeek();renderAll()};
+
+// ---------- Korrektur (nur eigener Stand) ----------
+document.querySelectorAll("[data-fix]").forEach(b=>b.addEventListener("click",()=>{
+  showTab("einstellungen");updateFix();
+  $("fixPanel").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
+  setTimeout(()=>$("cVal").focus({preventScroll:true}),300)}));
+function fixDelta(){const cur=weekScore(inWeek(selWeek),mySlot).total,raw=$("cVal").value;
+  if(raw==="")return{cur,delta:0,empty:true};const v=+raw;
+  return{cur,delta:r1($("cMode").value==="set"?v-cur:v)}}
+function updateFix(){
+  if(!mySlot)return;
+  $("lcVal").textContent=$("cMode").value==="set"?"Neuer Punktestand":"Punkte (+/−)";
+  const{cur,delta,empty}=fixDelta();
+  $("cPrev").textContent=empty?`Du hast in KW ${kwOf(parseYmd(selWeek))} aktuell ${fmt(cur)} Punkte. Die Woche wählst du oben auf der Anzeigetafel.`:`${fmt(cur)} → ${fmt(cur+delta)} (Korrektur ${sfmt(delta)})`}
+$("cMode").addEventListener("change",updateFix);$("cVal").addEventListener("input",updateFix);
+$("fix").addEventListener("submit",async ev=>{
+  ev.preventDefault();
+  const{delta,empty}=fixDelta();
+  if(empty||!delta){setToast($("cToast"),"Bitte einen Wert eintragen, der den Punktestand ändert.",true);return}
+  const date=selWeek===curWeek()?ymd(new Date()):selWeek;
+  const note=$("cNote").value.trim();
+  const ok=await addEntry({ex:"adj",label:"Korrektur",amount:note||"manuell",v1:0,v2:0,bw:0,pts:delta,date,week:selWeek},$("cToast"));
+  if(ok){setToast($("cToast"),`Korrektur ${sfmt(delta)} eingetragen.`);$("cVal").value="";$("cNote").value="";updateFix()}
+});
+
+// ---------- Einstellungen ----------
+$("sNameA").addEventListener("change",e=>{cfg.names.A=e.target.value.trim()||DEF.names.A;savePlayer("A")});
+$("sNameB").addEventListener("change",e=>{cfg.names.B=e.target.value.trim()||DEF.names.B;savePlayer("B")});
+$("sBwA").addEventListener("change",e=>{const v=+e.target.value;if(v>=30&&v<=300){cfg.bw.A=v;savePlayer("A")}});
+$("sBwB").addEventListener("change",e=>{const v=+e.target.value;if(v>=30&&v<=300){cfg.bw.B=v;savePlayer("B")}});
+$("sCap").addEventListener("change",e=>{cfg.cap=Math.max(0,+e.target.value||0);saveSettings()});
+$("resetPts").addEventListener("click",()=>{cfg.points={};$("ptsEdit").innerHTML="";saveSettings()});
+["fWho","fEx","fSpan"].forEach(id=>$(id).addEventListener("change",()=>{shown=60;renderAllLog()}));
+$("more").addEventListener("click",()=>{shown+=60;renderAllLog()});
+$("bReload").addEventListener("click",()=>location.reload());
+async function logout(){try{await sb.auth.signOut()}catch(_){}LS.set("sd-cache",null);location.reload()}
+$("bLogout").addEventListener("click",logout);$("bDeniedOut").addEventListener("click",logout);
+
+// ---------- Login per Code ----------
+$("fEmail").addEventListener("submit",async ev=>{
+  ev.preventDefault();const email=$("lEmail").value.trim();if(!email)return;
+  $("bSend").disabled=true;
+  const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:true}});
+  $("bSend").disabled=false;
+  if(error){setToast($("lToast1"),/rate|seconds/i.test(error.message)?"Zu viele Versuche. Bitte kurz warten und dann nochmal.":errText(error),true);return}
+  LS.set("sd-email",email);$("lEmailShown").textContent=email;$("fEmail").hidden=true;$("fCode").hidden=false;$("lCode").value="";$("lCode").focus()});
+$("bBack").addEventListener("click",()=>{$("fCode").hidden=true;$("fEmail").hidden=false});
+$("fCode").addEventListener("submit",async ev=>{
+  ev.preventDefault();const token=$("lCode").value.replace(/\D/g,"");const email=LS.get("sd-email","");
+  if(token.length<6){setToast($("lToast2"),"Bitte den Code aus der E-Mail eingeben.",true);return}
+  $("bVerify").disabled=true;
+  const {error}=await sb.auth.verifyOtp({email,token,type:"email"});
+  $("bVerify").disabled=false;
+  if(error){setToast($("lToast2"),/expired|invalid/i.test(error.message)?"Code falsch oder abgelaufen. Fordere einen neuen an.":errText(error),true)}
+});
+
+async function onSession(session){
+  if(!session){myEmail="";mySlot=null;show("vLogin");const e=LS.get("sd-email","");if(e)$("lEmail").value=e;return}
+  myEmail=session.user.email||"";
+  const cache=LS.get("sd-cache",null);
+  if(cache&&cache.email===myEmail&&cache.mySlot){cfg=cache.cfg;entries=cache.entries;mySlot=cache.mySlot;loaded=true;show("vApp");renderAll()}
+  await loadAll();subscribe()}
+let lastUser=undefined;
+sb.auth.onAuthStateChange((ev,session)=>{
+  const uid=session?session.user.id:null;
+  if(uid===lastUser)return;lastUser=uid;
+  setTimeout(()=>onSession(session),0)});
+
+// ---------- Installieren ----------
+const standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+let deferredPrompt=null;
+function showInstall(text,btn){if(standalone||LS.get("sd-noinstall",false))return;$("installText").textContent=text;$("bInstall").hidden=!btn;$("install").hidden=false}
+if(isIOS)showInstall("Als App nutzen: In Safari auf Teilen tippen und „Zum Home-Bildschirm“ wählen.",false);
+addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;showInstall("Sportduell als App auf diesem Gerät installieren.",true)});
+$("bInstall").addEventListener("click",async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$("install").hidden=true});
+$("bInstallX").addEventListener("click",()=>{$("install").hidden=true;LS.set("sd-noinstall",true)});
+if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+
+// ---------- Start ----------
+showTab(LS.get("sd-tab","duell"));
+setupForm();
+</script>
+</body>
+</html>
