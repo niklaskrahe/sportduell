@@ -378,6 +378,11 @@ td input[type=number]{width:6.5rem;padding:5px 8px}
       <div class="panel">
         <h2>Konto</h2>
         <p>Angemeldet als <b id="accEmail"></b></p>
+        <form id="fPwChange" class="row" style="align-items:end">
+          <div class="field"><span class="label" id="lPwNew">Neues Passwort</span><input type="password" id="sPwNew" autocomplete="new-password" minlength="8" required aria-labelledby="lPwNew"></div>
+          <button class="ghost" type="submit" id="bPwChange" style="padding:9px 11px">Passwort ändern</button>
+        </form>
+        <p class="toast" id="aToast" role="status"></p>
         <p class="hint" id="appVersion"></p>
         <div class="btnrow"><button class="ghost" id="bReload" type="button">Neu laden</button><button class="ghost" id="bLogout" type="button">Abmelden</button></div>
       </div>
@@ -389,7 +394,7 @@ td input[type=number]{width:6.5rem;padding:5px 8px}
 <script src="supabase.js"></script>
 <script>
 "use strict";
-const APP_VERSION="1.1";
+const APP_VERSION="1.2";
 const EX=[
  {cat:"Ausdauer"},
  {id:"run",n:"Laufen",u:"1 km",t:"dist",p:10,hm:5},
@@ -740,7 +745,15 @@ $("resetPts").addEventListener("click",()=>{cfg.points={};$("ptsEdit").innerHTML
 $("more").addEventListener("click",()=>{shown+=60;renderAllLog()});
 $("bReload").addEventListener("click",()=>location.reload());
 async function logout(){try{await sb.auth.signOut()}catch(_){}LS.set("sd-cache",null);location.reload()}
-$("bLogout").addEventListener("click",logout);$("bDeniedOut").addEventListener("click",logout);
+$("bLogout").addEventListener("click",logout);
+$("fPwChange").addEventListener("submit",async ev=>{
+  ev.preventDefault();const pw=$("sPwNew").value;
+  if(pw.length<8){setToast($("aToast"),"Mindestens 8 Zeichen.",true);return}
+  $("bPwChange").disabled=true;
+  const {error}=await sb.auth.updateUser({password:pw});
+  $("bPwChange").disabled=false;
+  if(error)setToast($("aToast"),/different/i.test(error.message)?"Das ist schon dein aktuelles Passwort.":errText(error),true);
+  else{$("sPwNew").value="";setToast($("aToast"),"Passwort geändert.")}});$("bDeniedOut").addEventListener("click",logout);
 
 // ---------- Login mit Passwort ----------
 const APP_URL=location.origin+location.pathname.replace(/index\.html$/,"");
