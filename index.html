@@ -360,7 +360,7 @@ details.dtable table{margin-top:8px}
         <thead><tr><th>Übung</th><th>Einheit</th><th class="n">Punkte</th><th>≙ 1 km Laufen</th></tr></thead>
         <tbody id="tab"></tbody>
       </table></div>
-      <p class="hint">Hantelübungen: Punkte = Wiederholungen × (Gewicht ÷ Körpergewicht) × Faktor. So zählt die relative Kraft, nicht wer schwerer ist. Werte lassen sich unter Einstellungen anpassen.</p>
+      <p class="hint">Hantel- und Maschinenübungen: Punkte = Wiederholungen × (Gewicht ÷ Körpergewicht) × Faktor. So zählt die relative Kraft, nicht wer schwerer ist. Bei Kurzhanteln zählt das Gewicht beider Hanteln zusammen. Werte lassen sich unter Einstellungen anpassen.</p>
     </div>
     <div class="stack">
       <h2>Spielregeln</h2>
@@ -440,7 +440,7 @@ details.dtable table{margin-top:8px}
 <script src="supabase.js"></script>
 <script>
 "use strict";
-const APP_VERSION="1.4";
+const APP_VERSION="1.5";
 const EX=[
  {cat:"Ausdauer"},
  {id:"run",n:"Laufen",u:"1 km",t:"dist",p:10,hm:5},
@@ -461,9 +461,18 @@ const EX=[
  {id:"plank",n:"Plank",u:"1 min",t:"min",p:4},
  {cat:"Hantel (relativ zum Körpergewicht)"},
  {id:"bench",n:"Bankdrücken",u:"Faktor",t:"lift",p:1.5},
+ {id:"incl",n:"Schrägbankdrücken",u:"Faktor",t:"lift",p:1.6},
  {id:"bsq",n:"Kniebeuge (Langhantel)",u:"Faktor",t:"lift",p:1.2},
  {id:"dl",n:"Kreuzheben",u:"Faktor",t:"lift",p:1.2},
  {id:"ohp",n:"Schulterdrücken",u:"Faktor",t:"lift",p:2},
+ {id:"curl",n:"Bizeps Curls",u:"Faktor",t:"lift",p:2.5,h:"Gewicht: beide Kurzhanteln zusammen, z. B. 2 × 10 kg = 20 kg."},
+ {id:"latr",n:"Lateral Raise",u:"Faktor",t:"lift",p:4,h:"Gewicht: beide Kurzhanteln zusammen, z. B. 2 × 10 kg = 20 kg."},
+ {cat:"Maschine & Kabelzug (relativ zum Körpergewicht)"},
+ {id:"latpd",n:"Lat Pulldown",u:"Faktor",t:"lift",p:1.4},
+ {id:"srow",n:"Seated Row",u:"Faktor",t:"lift",p:1.4},
+ {id:"tpush",n:"Trizeps Pushdown",u:"Faktor",t:"lift",p:2.2},
+ {id:"legext",n:"Leg Extension",u:"Faktor",t:"lift",p:1.2},
+ {id:"legcurl",n:"Leg Curl",u:"Faktor",t:"lift",p:1.5},
  {cat:"Sonstige Sportarten (Fußball, Tennis, Klettern …)"},
  {id:"oL",n:"Sonstiges locker",u:"10 min",t:"min",p:6,per:10},
  {id:"oM",n:"Sonstiges moderat",u:"10 min",t:"min",p:10,per:10},
@@ -807,7 +816,7 @@ function setupForm(keep){
   const L={dist:e.m?"Meter":"Kilometer",reps:"Wiederholungen",min:"Minuten",lift:"Wiederholungen (gesamt)"};
   $("l1").textContent=L[e.t];
   $("l2").textContent=e.t==="lift"?"Gewicht (kg)":"Höhenmeter (optional)";
-  $("hint").textContent=e.t==="lift"?"Mehrere Sätze mit gleichem Gewicht: Wiederholungen zusammenzählen.":e.id.startsWith("o")?"Für Fußball, Tennis, Klettern, Kampfsport und alles ohne eigene Zeile.":"";
+  $("hint").textContent=e.t==="lift"?"Mehrere Sätze mit gleichem Gewicht: Wiederholungen zusammenzählen."+(e.h?" "+e.h:" Gewicht wie auf Stange bzw. Maschine angezeigt."):e.id.startsWith("o")?"Für Fußball, Tennis, Klettern, Kampfsport und alles ohne eigene Zeile.":"";
   if(!keep&&document.activeElement!==$("bw"))$("bw").value=cfg.bw[mySlot]||80;
   updatePreview()}
 function updatePreview(){$("prev").textContent=fmt(calc(byId[sel.value],$("v1").value,$("v2").value,$("bw").value))}
